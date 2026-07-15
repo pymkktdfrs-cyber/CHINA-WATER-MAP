@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BRITA全国水质方案推荐地图</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --brita-blue: #002b5c;
+      --brita-blue-2: #063b78;
+      --panel: rgba(255, 255, 255, 0.96);
+      --text: #13233a;
+      --muted: #6b7890;
+      --xtra: #B79AEF;
+      --st: #11B5C9;
+      --minup: #FFF200;
+      --line: rgba(255,255,255,0.16);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      background: radial-gradient(circle at top left, #0a4a8f 0%, var(--brita-blue) 42%, #001833 100%);
+      color: #fff;
+      min-height: 100vh;
+    }
+    .page { max-width: 1480px; margin: 0 auto; padding: 28px; }
+    .hero { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 22px; }
+    .title-block h1 { margin: 0; font-size: 34px; letter-spacing: 0.5px; }
+    .title-block p { margin: 10px 0 0; color: rgba(255,255,255,0.76); font-size: 15px; }
+    .brand-pill { border: 1px solid rgba(255,255,255,0.22); border-radius: 999px; padding: 10px 16px; color: rgba(255,255,255,0.86); font-weight: 700; background: rgba(255,255,255,0.08); }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .stat-card { background: rgba(255,255,255,0.12); border: 1px solid var(--line); border-radius: 18px; padding: 16px; backdrop-filter: blur(10px); }
+    .stat-card .label { color: rgba(255,255,255,0.72); font-size: 13px; }
+    .stat-card .value { margin-top: 8px; font-size: 30px; font-weight: 800; }
+    .stat-card.xtra { border-left: 7px solid var(--xtra); }
+    .stat-card.st { border-left: 7px solid var(--st); }
+    .stat-card.minup { border-left: 7px solid var(--minup); }
+    .workspace { display: grid; grid-template-columns: minmax(580px, 1.55fr) minmax(360px, 0.9fr); gap: 18px; align-items: stretch; }
+    .card { background: var(--panel); color: var(--text); border-radius: 24px; box-shadow: 0 16px 44px rgba(0,0,0,0.18); overflow: hidden; }
+    .map-card { min-height: 650px; display: flex; flex-direction: column; }
+    .toolbar { display: grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap: 10px; padding: 16px; border-bottom: 1px solid #e8edf5; }
+    select, input, button { height: 40px; border-radius: 12px; border: 1px solid #d8e0ec; padding: 0 12px; font-size: 14px; outline: none; background: #fff; color: var(--text); }
+    button { cursor: pointer; background: var(--brita-blue); color: #fff; border: none; font-weight: 700; }
+    button:hover { background: var(--brita-blue-2); }
+    #map { width: 100%; flex: 1; min-height: 550px; }
+    .legend { display: flex; gap: 12px; padding: 0 16px 16px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.18); }
+    .side { display: flex; flex-direction: column; min-height: 650px; }
+    .side-header { padding: 18px 18px 12px; border-bottom: 1px solid #e8edf5; }
+    .side-header h2 { margin: 0; font-size: 22px; }
+    .side-header p { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+    .recommend { padding: 18px; }
+    .plan-badge { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 999px; font-weight: 800; color: #06172a; margin-bottom: 12px; }
+    .param-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+    .param { background: #f4f7fb; border-radius: 16px; padding: 12px; }
+    .param .k { color: var(--muted); font-size: 12px; }
+    .param .v { margin-top: 6px; font-size: 22px; font-weight: 800; }
+    .reason { background: #f7f9fc; border-left: 5px solid var(--brita-blue); border-radius: 14px; padding: 12px; line-height: 1.55; font-size: 14px; }
+    .list-wrap { padding: 0 18px 18px; overflow: auto; max-height: 360px; }
+    .list-title { color: var(--muted); margin: 8px 0 10px; font-weight: 700; }
+    .point { border: 1px solid #e8edf5; border-radius: 15px; padding: 12px; margin-bottom: 10px; cursor: pointer; background: #fff; }
+    .point:hover { border-color: #a9bfdc; box-shadow: 0 8px 20px rgba(0,43,92,0.08); }
+    .point-top { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-weight: 800; }
+    .mini-badge { border-radius: 999px; padding: 4px 8px; font-size: 12px; white-space: nowrap; color: #071629; }
+    .point-meta { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .rules { margin-top: 18px; background: rgba(255,255,255,0.1); border: 1px solid var(--line); border-radius: 22px; padding: 18px; backdrop-filter: blur(10px); }
+    .rules h3 { margin: 0 0 10px; }
+    .rules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .rule { background: rgba(255,255,255,0.92); color: var(--text); padding: 14px; border-radius: 16px; line-height: 1.55; }
+    .rule b { display: block; margin-bottom: 6px; }
+    .empty { color: var(--muted); padding: 18px; text-align: center; }
+    .tip { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 10px; }
+    @media (max-width: 1050px) {
+      .workspace { grid-template-columns: 1fr; }
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .stats, .rules-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .page { padding: 16px; }
+      .hero { flex-direction: column; }
+      .stats, .rules-grid, .toolbar { grid-template-columns: 1fr; }
+      .title-block h1 { font-size: 26px; }
+      .param-grid { grid-template-columns: 1fr; }
+      #map { min-height: 440px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="title-block">
+        <h1>全国水质方案推荐地图</h1>
+        <p>基于 TDS、GH 总硬度、KH 总碱度数据，快速匹配适合的 BRITA 滤芯方案</p>
+        <div class="tip">提示：当前 Excel 未包含经纬度，因此地图按“省份聚合”展示；点击省份后查看该省所有点位。</div>
+      </div>
+      <div class="brand-pill">BRITA Water Plan Selector</div>
+    </section>
+
+    <section class="stats">
+      <div class="stat-card"><div class="label">总点位数</div><div class="value" id="totalCount">-</div></div>
+      <div class="stat-card xtra"><div class="label">XtraSafe大胖紫</div><div class="value" id="xtraCount">-</div></div>
+      <div class="stat-card st"><div class="label">Quell St风味大师</div><div class="value" id="stCount">-</div></div>
+      <div class="stat-card minup"><div class="label">Quell St+MinUp</div><div class="value" id="minupCount">-</div></div>
+    </section>
+
+    <section class="workspace">
+      <div class="card map-card">
+        <div class="toolbar">
+          <select id="provinceFilter"><option value="全部">全部省份</option></select>
+          <select id="planFilter">
+            <option value="全部">全部方案</option>
+            <option value="XtraSafe大胖紫">XtraSafe大胖紫</option>
+            <option value="Quell St风味大师">Quell St风味大师</option>
+            <option value="Quell St+MinUp">Quell St+MinUp</option>
+          </select>
+          <input id="citySearch" placeholder="搜索城市/行政区/地址" />
+          <button id="resetBtn">重置</button>
+        </div>
+        <div id="map"></div>
+        <div class="legend">
+          <span class="legend-item"><span class="dot" style="background:#B79AEF"></span>XtraSafe大胖紫</span>
+          <span class="legend-item"><span class="dot" style="background:#11B5C9"></span>Quell St风味大师</span>
+          <span class="legend-item"><span class="dot" style="background:#FFF200"></span>Quell St+MinUp</span>
+          <span class="legend-item"><span class="dot" style="background:#D7DEE9"></span>暂无筛选数据</span>
+        </div>
+      </div>
+
+      <aside class="card side">
+        <div class="side-header">
+          <h2 id="panelTitle">全国概览</h2>
+          <p id="panelSubtitle">点击地图上的省份，查看该区域水质点位与推荐方案。</p>
+        </div>
+        <div class="recommend" id="recommendBox"></div>
+        <div class="list-wrap">
+          <div class="list-title" id="listTitle">点位列表</div>
+          <div id="pointList"></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="rules">
+      <h3>方案匹配规则说明</h3>
+      <div class="rules-grid">
+        <div class="rule"><b style="color:#7b57cc">XtraSafe大胖紫</b>TDS &gt; 200 或 GH &gt; 175 时优先推荐，适合过硬水/高矿化水场景。</div>
+        <div class="rule"><b style="color:#0099b0">Quell St风味大师</b>未达到 XtraSafe 或 MinUp 条件的中等/常规水质，推荐用于稳定风味表现。</div>
+        <div class="rule"><b style="color:#a89500">Quell St+MinUp</b>TDS &lt; 60 且 GH &lt; 50 且 KH &lt; 40 时推荐，适合偏软水场景。</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const PLAN_COLORS = {
+      "XtraSafe大胖紫": "#B79AEF",
+      "Quell St风味大师": "#11B5C9",
+      "Quell St+MinUp": "#FFF200"
+    };
+    const PLAN_TEXT = {
+      "XtraSafe大胖紫": "适合过硬水或高矿化水，优先考虑设备保护与稳定运行。",
+      "Quell St风味大师": "适合中等或常规水质，帮助保持饮品风味稳定。",
+      "Quell St+MinUp": "适合偏软水，保留或补充矿物质口感表现。"
+    };
+    const CHINA_GEO_URLS = [
+      "./china.json",
+      "https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json"
+    ];
+
+    let rawData = [];
+    let filteredData = [];
+    let provinceAgg = {};
+    let chart = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function countByPlan(data) {
+      return data.reduce((acc, item) => {
+        acc[item.plan] = (acc[item.plan] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    function mainPlanFromCounts(counts) {
+      const order = ["XtraSafe大胖紫", "Quell St风味大师", "Quell St+MinUp"];
+      return order.map(plan => ({ plan, count: counts[plan] || 0 }))
+        .sort((a, b) => b.count - a.count)[0]?.plan || "暂无数据";
+    }
+
+    function aggregateByProvince(data) {
+      const agg = {};
+      data.forEach(item => {
+        const name = item.mapProvince || item.province;
+        if (!agg[name]) {
+          agg[name] = { name, province: item.province, total: 0, counts: {}, records: [] };
+        }
+        agg[name].total += 1;
+        agg[name].counts[item.plan] = (agg[name].counts[item.plan] || 0) + 1;
+        agg[name].records.push(item);
+      });
+      Object.values(agg).forEach(p => {
+        p.mainPlan = mainPlanFromCounts(p.counts);
+        p.color = PLAN_COLORS[p.mainPlan] || "#D7DEE9";
+      });
+      return agg;
+    }
+
+    function getFilteredData() {
+      const province = $("provinceFilter").value;
+      const plan = $("planFilter").value;
+      const keyword = $("citySearch").value.trim().toLowerCase();
+      return rawData.filter(item => {
+        const provinceOk = province === "全部" || item.province === province;
+        const planOk = plan === "全部" || item.plan === plan;
+        const text = `${item.province}${item.city}${item.district}${item.address}`.toLowerCase();
+        const keywordOk = !keyword || text.includes(keyword);
+        return provinceOk && planOk && keywordOk;
+      });
+    }
+
+    function updateStats(data) {
+      const counts = countByPlan(data);
+      $("totalCount").textContent = data.length;
+      $("xtraCount").textContent = counts["XtraSafe大胖紫"] || 0;
+      $("stCount").textContent = counts["Quell St风味大师"] || 0;
+      $("minupCount").textContent = counts["Quell St+MinUp"] || 0;
+    }
+
+    function updateProvinceOptions(data) {
+      const provinces = [...new Set(data.map(d => d.province).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+      $("provinceFilter").innerHTML = `<option value="全部">全部省份</option>` + provinces.map(p => `<option value="${p}">${p}</option>`).join("");
+    }
+
+    function renderMap() {
+      provinceAgg = aggregateByProvince(filteredData);
+      const seriesData = Object.values(provinceAgg).map(p => ({
+        name: p.name,
+        value: p.total,
+        itemStyle: { areaColor: p.color },
+        emphasis: { itemStyle: { areaColor: p.color } },
+        meta: p
+      }));
+
+      chart.setOption({
+        backgroundColor: "transparent",
+        tooltip: {
+          trigger: "item",
+          formatter: params => {
+            const p = provinceAgg[params.name];
+            if (!p) return `${params.name}<br/>暂无筛选数据`;
+            return `
+              <strong>${p.province || params.name}</strong><br/>
+              总点位：${p.total}<br/>
+              主推荐：${p.mainPlan}<br/>
+              XtraSafe：${p.counts["XtraSafe大胖紫"] || 0}<br/>
+              Quell St：${p.counts["Quell St风味大师"] || 0}<br/>
+              MinUp：${p.counts["Quell St+MinUp"] || 0}
+            `;
+          }
+        },
+        visualMap: { show: false, min: 0, max: 100, inRange: { color: ["#D7DEE9", "#D7DEE9"] } },
+        series: [{
+          name: "水质方案",
+          type: "map",
+          map: "china",
+          roam: true,
+          selectedMode: false,
+          label: { show: true, fontSize: 10, color: "#233852" },
+          itemStyle: { areaColor: "#D7DEE9", borderColor: "#ffffff", borderWidth: 1 },
+          emphasis: { label: { color: "#001a3a", fontWeight: "bold" }, itemStyle: { borderColor: "#002b5c", borderWidth: 2 } },
+          data: seriesData
+        }]
+      });
+    }
+
+    function renderDetailForProvince(mapName) {
+      const p = provinceAgg[mapName];
+      if (!p) {
+        $("panelTitle").textContent = mapName;
+        $("panelSubtitle").textContent = "当前筛选条件下，该省份暂无数据。";
+        $("recommendBox").innerHTML = `<div class="empty">暂无可展示点位</div>`;
+        $("pointList").innerHTML = "";
+        return;
+      }
+      $("panelTitle").textContent = p.province || mapName;
+      $("panelSubtitle").textContent = `共 ${p.total} 个测水点位，主推荐方案为 ${p.mainPlan}`;
+      renderRecommendation(p.records[0], p.mainPlan, p.counts);
+      renderPointList(p.records);
+    }
+
+    function renderRecommendation(record, planOverride, counts) {
+      const plan = planOverride || record.plan;
+      const color = PLAN_COLORS[plan] || record.color || "#D7DEE9";
+      const countInfo = counts ? `XtraSafe ${counts["XtraSafe大胖紫"] || 0} ｜ Quell St ${counts["Quell St风味大师"] || 0} ｜ MinUp ${counts["Quell St+MinUp"] || 0}` : "";
+      $("recommendBox").innerHTML = `
+        <div class="plan-badge" style="background:${color}"><span class="dot" style="background:${color}"></span>${plan}</div>
+        <div class="reason">${PLAN_TEXT[plan] || "请根据 TDS、GH、KH 参数进一步判断。"}${countInfo ? `<br/><br/>方案分布：${countInfo}` : ""}</div>
+        <div class="param-grid">
+          <div class="param"><div class="k">TDS</div><div class="v">${record.tds ?? "-"}</div></div>
+          <div class="param"><div class="k">GH总硬度</div><div class="v">${record.gh ?? "-"}</div></div>
+          <div class="param"><div class="k">KH总碱度</div><div class="v">${record.kh ?? "-"}</div></div>
+        </div>
+        <div class="reason"><strong>匹配依据：</strong>${record.reason || "省份聚合主推荐，查看下方点位列表可见每条数据依据。"}</div>
+      `;
+    }
+
+    function renderPointList(records) {
+      $("listTitle").textContent = `点位列表（${records.length}）`;
+      if (!records.length) {
+        $("pointList").innerHTML = `<div class="empty">暂无点位</div>`;
+        return;
+      }
+      $("pointList").innerHTML = records.map((r, idx) => `
+        <div class="point" data-index="${idx}">
+          <div class="point-top">
+            <span>${r.city || r.province} ${r.district || ""}</span>
+            <span class="mini-badge" style="background:${r.color}">${r.plan}</span>
+          </div>
+          <div class="point-meta">
+            TDS ${r.tds} ｜ GH ${r.gh} ｜ KH ${r.kh}${r.ph ? ` ｜ pH ${r.ph}` : ""}<br/>
+            ${r.reason || ""}
+          </div>
+        </div>
+      `).join("");
+      [...document.querySelectorAll(".point")].forEach((el, idx) => {
+        el.addEventListener("click", () => renderSingleRecord(records[idx]));
+      });
+    }
+
+    function renderSingleRecord(record) {
+      $("panelTitle").textContent = `${record.city || record.province} ${record.district || ""}`;
+      $("panelSubtitle").textContent = `${record.province} ｜ ${record.date || "测水日期未填写"} ｜ 来源：${record.source || "-"}`;
+      renderRecommendation(record);
+    }
+
+    function applyFilters() {
+      filteredData = getFilteredData();
+      updateStats(filteredData);
+      renderMap();
+      $("panelTitle").textContent = "筛选结果";
+      $("panelSubtitle").textContent = `当前筛选后共 ${filteredData.length} 个点位。点击地图省份查看详情。`;
+      const samplePlan = mainPlanFromCounts(countByPlan(filteredData));
+      if (filteredData.length) renderRecommendation(filteredData[0], samplePlan, countByPlan(filteredData));
+      renderPointList(filteredData.slice(0, 80));
+    }
+
+    async function loadChinaGeo() {
+      let lastError = null;
+      for (const url of CHINA_GEO_URLS) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`${url} ${res.status}`);
+          return await res.json();
+        } catch (err) { lastError = err; }
+      }
+      throw lastError || new Error("无法加载中国地图 GeoJSON");
+    }
+
+    async function init() {
+      try {
+        const [data, chinaGeo] = await Promise.all([
+          fetch("./data.json").then(res => res.json()),
+          loadChinaGeo()
+        ]);
+        rawData = data;
+        filteredData = rawData;
+        updateProvinceOptions(rawData);
+        updateStats(rawData);
+        echarts.registerMap("china", chinaGeo);
+        chart = echarts.init($("map"));
+        renderMap();
+        renderPointList(rawData.slice(0, 80));
+        renderRecommendation(rawData[0], mainPlanFromCounts(countByPlan(rawData)), countByPlan(rawData));
+
+        chart.on("click", params => renderDetailForProvince(params.name));
+        window.addEventListener("resize", () => chart.resize());
+        $("provinceFilter").addEventListener("change", applyFilters);
+        $("planFilter").addEventListener("change", applyFilters);
+        $("citySearch").addEventListener("input", applyFilters);
+        $("resetBtn").addEventListener("click", () => {
+          $("provinceFilter").value = "全部";
+          $("planFilter").value = "全部";
+          $("citySearch").value = "";
+          applyFilters();
+        });
+      } catch (err) {
+        console.error(err);
+        document.body.innerHTML = `<div style="padding:40px;color:white;font-family:Arial,'Microsoft YaHei',sans-serif"><h2>页面加载失败</h2><p>请确认 index.html 与 data.json 位于同一目录，并且网络可访问 ECharts 与中国地图 GeoJSON。</p><pre>${err.message}</pre></div>`;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
